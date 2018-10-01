@@ -88,6 +88,8 @@ Reading MIDI from C
 
 **TODO**
 
+http://fundamental-code.com/midi/
+
 Putting it all together
 =======================
 
