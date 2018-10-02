@@ -5,4 +5,6 @@ set(CMAKE_C_STANDARD 99)
 
 add_executable (test_gadget src/test_gadget.c)
 add_executable (midi-listen src/midi-listen.c)
-add_executable (test src/midi2hid.c)
+add_executable (midi2hid src/midi2hid.c)
+
+target_link_libraries (midi-listen asound)

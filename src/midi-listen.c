@@ -44,6 +44,7 @@ void midi_process(const snd_seq_event_t *ev)
 int main()
 {
     midi_open();
+    printf("listening to midi\n");
     while(1)
         midi_process(midi_read());
     return -1;
