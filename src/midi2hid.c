@@ -22,7 +22,7 @@ struct mapping_t {
 /**
  * Defines the note to keystroke mapping.
  */
-static struct mapping_t map[] = {
+static struct mapping_t mapping[] = {
         {.note = 0x81, .key = "a"},
         {.note = 0x82, .key = "--left-shift a"},
         {.note = 0x83, .key = "--left-alt 6"},
@@ -103,12 +103,21 @@ __uint8_t findOption(const struct options *opts, const char *tok) {
  * @param hold
  * @return
  */
-int keyboard_fill_report(__uint8_t report[8], char *keys) {
+int keyboard_fill_report(__uint8_t report[8], const char *keys) {
     memset(report, 0x0, 8);
-    char *tok = strtok(keys, " ");
+    char buffer[1024];
+    strcpy(buffer, keys);
+    char *tok = strtok(buffer, " ");
     int key = 0;
     int i = 0;
     for (; tok != NULL; tok = strtok(NULL, " ")) {
+        // set modifiers
+        unsigned char mod = findOption(kmod, tok);
+        if (mod) {
+            report[0] = report[0] | kmod[i].val;
+            continue;
+        }
+
         // we can _press_ down 6 keys in maximum
         if (key < 6) {
             // check for any 'special' key.
@@ -118,21 +127,19 @@ int keyboard_fill_report(__uint8_t report[8], char *keys) {
                 continue;
             }
 
-            // we can only set lowercase. Uppercase needs --shift
-            if (islower(tok[0])) {
+            const char t = tok[0];
+
+            if (t >= 'a' && t <= 'z') {
                 report[2 + key++] = (unsigned char) (tok[0] - ('a' - 0x04));
                 continue;
+            } else if (t >= '1' && t <= '9') {
+                report[2 + key++] = (unsigned char) (tok[0] - ('1' - 0x1e));
+                continue;
+            } else if (t == '0') {
+                report[2 + key++] = (unsigned char) (0x27);
+                continue;
             }
-        }
 
-        // set any other modifiers
-        unsigned char mod = findOption(kmod, tok);
-        if (mod) {
-            report[0] = report[0] | kmod[i].val;
-            continue;
-        }
-
-        if (key < 6) {
             fprintf(stderr, "unknown option: %s\n", tok);
         }
     }
@@ -140,9 +147,23 @@ int keyboard_fill_report(__uint8_t report[8], char *keys) {
 }
 
 void initMap() {
+    printf("Mapping\n");
+    for (int i=0; mapping[i].key; i++) {
+        struct mapping_t map = mapping[i];
+        keyboard_fill_report(map.report, map.key);
+        printf("├── Note: %02x\n", map.note);
+        printf("│   ├── Keys: %s\n", map.key);
+        printf("│   └── Report:");
+        for (int k=0; k<8; k++) {
+            printf(" %02x", map.report[k]);
+        }
+        printf("\n│\n");
+    }
 
 }
 
 int main() {
-    printf("Test");
+    printf("MIDI-2-HiD Adapter\n");
+    printf("------------------\n\n");
+    initMap();
 }
