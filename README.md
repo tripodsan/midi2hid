@@ -112,11 +112,11 @@ after:
 
 Various Links
 -------------
-https://docs.mbed.com/docs/ble-hid/en/latest/api/md_doc_HID.html#keyboard
-https://www.usb.org/document-library/hid-usage-tables-112
-https://www.kernel.org/doc/Documentation/usb/gadget_hid.txt
+- https://docs.mbed.com/docs/ble-hid/en/latest/api/md_doc_HID.html#keyboard
+- https://www.usb.org/document-library/hid-usage-tables-112
+- https://www.kernel.org/doc/Documentation/usb/gadget_hid.txt
 
-https://unix.stackexchange.com/questions/388304/no-udc-shows-up-for-usb-mass-storage-gadget-with-configfs/389073
-https://wiki.tizen.org/USB/Linux_USB_Layers/Configfs_Composite_Gadget/General_configuration
-https://stackoverflow.com/questions/33016961/where-is-g-multi-configured-in-beaglebone-black
-https://www.codeproject.com/Questions/1208305/Using-beaglebone-black-as-a-keyboard-device
+- https://unix.stackexchange.com/questions/388304/no-udc-shows-up-for-usb-mass-storage-gadget-with-configfs/389073
+- https://wiki.tizen.org/USB/Linux_USB_Layers/Configfs_Composite_Gadget/General_configuration
+- https://stackoverflow.com/questions/33016961/where-is-g-multi-configured-in-beaglebone-black
+- https://www.codeproject.com/Questions/1208305/Using-beaglebone-black-as-a-keyboard-device
