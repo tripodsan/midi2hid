@@ -201,7 +201,7 @@ void capture_midi(snd_seq_t *seq) {
     snd_seq_port_subscribe_set_queue(subs, 1);
     snd_seq_port_subscribe_set_time_update(subs, 1);
     snd_seq_port_subscribe_set_time_real(subs, 1);
-    if (snd_seq_subscribe_port(seq, subs < 0)) {
+    if (snd_seq_subscribe_port(seq, subs) < 0) {
         fprintf(stderr, "Could not subscribe to %d:%d.", dest.client, dest.port);
     }
 }
