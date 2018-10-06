@@ -161,9 +161,58 @@ root@beaglebone:~# amidi -d -p hw:1,0,0
 Reading MIDI from C
 =====================
 
-**TODO**
+The ALSA framework provides a sequencer, that sends MIDI events between clients.
+To list all clients use `aconnect -l`. Now, if we want to receive MIDI events from a connected MIDI device, such as
+a Keyboard or a DrumKit, we need to create a client and then connect the device to it. 
 
-http://fundamental-code.com/midi/
+For example, after connecting the TD-1 we see:
+
+```
+$ aconnect -l
+client 0: 'System' [type=kernel]
+    0 'Timer           '
+    1 'Announce        '
+client 14: 'Midi Through' [type=kernel]
+    0 'Midi Through Port-0'
+client 20: 'TD-1' [type=kernel,card=1]
+    0 'TD-1 MIDI 1     '
+``` 
+
+Then, after starting the `midi-listen` test program:
+
+```
+$ aconnect -l
+client 0: 'System' [type=kernel]
+    0 'Timer           '
+    1 'Announce        '
+client 14: 'Midi Through' [type=kernel]
+    0 'Midi Through Port-0'
+client 20: 'TD-1' [type=kernel,card=1]
+    0 'TD-1 MIDI 1     '
+client 128: 'Midi Listener' [type=user,pid=3465]
+    0 'listen:in       '
+```
+
+Then, we can connect the two:
+
+```
+$ aconnect 20:0 128:0
+$ aconnect -l
+client 0: 'System' [type=kernel]
+    0 'Timer           '
+    1 'Announce        '
+client 14: 'Midi Through' [type=kernel]
+    0 'Midi Through Port-0'
+client 20: 'TD-1' [type=kernel,card=1]
+    0 'TD-1 MIDI 1     '
+	Connecting To: 128:0
+client 128: 'Midi Listener' [type=user,pid=3465]
+    0 'listen:in       '
+	Connected From: 20:0
+```
+
+Of course this is a bit cumbersome to manually connect the device, we can also do it programmatically.
+see **Capture from keyboard** in [ALSA - Sequencer](http://www.alsa-project.org/alsa-doc/alsa-lib/seq.html).
 
 Putting it all together
 =======================
@@ -180,23 +229,23 @@ The TD-1 allows to change the midi notes. so this table is _my_ current setting
 |----------------|--------|
 | Pad            | Note   |
 +----------------+--------+
-| Kick           | `0x00` |
-| Snare Head     | `0x00` |
-| Snare Rim      | `0x00` |
-| Tom 1          | `0x00` |
-| Tom 2          | `0x00` |
-| Tom 3          | `0x00` |
-| HH Open Bow    | `0x00` |
-| HH Open Edge   | `0x00` |
-| HH Closed Bow  | `0x00` |
-| HH Closed Edge | `0x00` |
-| HH foot closed | `0x00` |
-| Crash 1 (Bow)  | `0x00` |
-| Crash 1 (Edge) | `0x00` |
+| Kick           | `0x24` |
+| Snare Head     | `0x26` |
+| Snare Rim      | `0x28` |
+| Tom 1          | `0x30` |
+| Tom 2          | `0x2d` |
+| Tom 3          | `0x2b` |
+| HH Open Bow    | `0x2e` |
+| HH Open Edge   | `0x1a` |
+| HH Closed Bow  | `0x2a` |
+| HH Closed Edge | `0x16` |
+| HH foot closed | `0x2c` |
+| Crash 1 (Bow)  | `0x31` |
+| Crash 1 (Edge) | `0x37` |
 | Crash 2 (Bow)  | `0x00` |
 | Crash 2 (Edge) | `0x00` |
-| Ride  2 (Bow)  | `0x00` |
-| Ride  2 (Edge) | `0x00` |
+| Ride  2 (Bow)  | `0x33` |
+| Ride  2 (Edge) | `0x3b` |
 
 Upgrade Kernel
 --------------
@@ -220,3 +269,6 @@ Various Links
 - https://wiki.tizen.org/USB/Linux_USB_Layers/Configfs_Composite_Gadget/General_configuration
 - https://stackoverflow.com/questions/33016961/where-is-g-multi-configured-in-beaglebone-black
 - https://www.codeproject.com/Questions/1208305/Using-beaglebone-black-as-a-keyboard-device
+
+- http://fundamental-code.com/midi/
+- http://www.alsa-project.org/alsa-doc/alsa-lib/seq.html

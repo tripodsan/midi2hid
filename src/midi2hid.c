@@ -28,12 +28,39 @@ struct mapping_t {
 
 /**
  * Defines the note to keystroke mapping.
+ * |----------------|--------|
+ * | Pad            | Note   |
+ * +----------------+--------+
+ * | Kick           | `0x24` |
+ * | Snare Head     | `0x26` |
+ * | Snare Rim      | `0x28` |
+ * | Tom 1          | `0x30` |
+ * | Tom 2          | `0x2d` |
+ * | Tom 3          | `0x2b` |
+ * | HH Open Bow    | `0x2e` |
+ * | HH Open Edge   | `0x1a` |
+ * | HH Closed Bow  | `0x2a` |
+ * | HH Closed Edge | `0x16` |
+ * | HH foot closed | `0x2c` |
+ * | Crash 1 (Bow)  | `0x31` |
+ * | Crash 1 (Edge) | `0x37` |
+ * | Crash 2 (Bow)  | `0x00` |
+ * | Crash 2 (Edge) | `0x00` |
+ * | Ride  2 (Bow)  | `0x33` |
+ * | Ride  2 (Edge) | `0x3b` |
  */
 static struct mapping_t mapping[] = {
-        {.note = 0x81, .key = "a"},
-        {.note = 0x82, .key = "--left-shift a"},
-        {.note = 0x83, .key = "--left-alt 6"},
-        {.note = 0x84, .key = "--spacebar"},
+        {.note = 0x24, .key = "--spacebar"},
+        {.note = 0x2e, .key = "w"},
+        {.note = 0x1a, .key = "w"},
+        {.note = 0x2a, .key = "w"},
+        {.note = 0x16, .key = "w"},
+        {.note = 0x30, .key = "y"},
+        {.note = 0x3d, .key = "h"},
+        {.note = 0x33, .key = "h"},
+        {.note = 0x3b, .key = "h"},
+        {.note = 0x26, .key = "s"},
+        {.note = 0x28, .key = "s"},
         {.key = NULL}
 };
 
@@ -188,13 +215,13 @@ void midi_open(void) {
     printf("Started client on %d:%d\n", in_client_id, in_port);
 }
 
-void capture_midi(snd_seq_t *seq) {
+void midi_capture(snd_seq_t *seq, int client, int port) {
     snd_seq_addr_t sender, dest;
     snd_seq_port_subscribe_t *subs;
-    sender.client = 20;
-    sender.port = 0;
-    dest.client = in_client_id;
-    dest.port = in_port;
+    sender.client = (__uint8_t) client;
+    sender.port = (__uint8_t) port;
+    dest.client = (__uint8_t) in_client_id;
+    dest.port = (__uint8_t) in_port;
     snd_seq_port_subscribe_alloca(&subs);
     snd_seq_port_subscribe_set_sender(subs, &sender);
     snd_seq_port_subscribe_set_dest(subs, &dest);
@@ -203,6 +230,8 @@ void capture_midi(snd_seq_t *seq) {
     snd_seq_port_subscribe_set_time_real(subs, 1);
     if (snd_seq_subscribe_port(seq, subs) < 0) {
         fprintf(stderr, "Could not subscribe to %d:%d.", dest.client, dest.port);
+    } else {
+        printf("Subscribed to %d:%d", client, port);
     }
 }
 
@@ -235,7 +264,7 @@ int main(int argc, const char *argv[]) {
     printf("------------------\n\n");
     initMap();
     midi_open();
-    capture_midi(seq_handle);
+    midi_capture(seq_handle, 20, 0);
     printf("listening to midi\n");
     int running = 1;
     while(running) {
@@ -243,9 +272,9 @@ int main(int argc, const char *argv[]) {
         if (note) {
             struct mapping_t* map = findMap(note);
             if (map) {
-                printf("note %02x maps to %s", note, map->key);
+                printf("note %02x maps to %s\n", note, map->key);
             } else {
-                printf("note %02x is not mapped", note);
+                printf("note %02x is not mapped\n", note);
             }
         }
     }
