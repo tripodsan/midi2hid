@@ -173,6 +173,31 @@ Putting it all together
 Misc
 ====
 
+MIDI notes of Roland TD-1
+-------------------------
+The TD-1 allows to change the midi notes. so this table is _my_ current setting
+
+|----------------|--------|
+| Pad            | Note   |
++----------------+--------+
+| Kick           | `0x00` |
+| Snare Head     | `0x00` |
+| Snare Rim      | `0x00` |
+| Tom 1          | `0x00` |
+| Tom 2          | `0x00` |
+| Tom 3          | `0x00` |
+| HH Open Bow    | `0x00` |
+| HH Open Edge   | `0x00` |
+| HH Closed Bow  | `0x00` |
+| HH Closed Edge | `0x00` |
+| HH foot closed | `0x00` |
+| Crash 1 (Bow)  | `0x00` |
+| Crash 1 (Edge) | `0x00` |
+| Crash 2 (Bow)  | `0x00` |
+| Crash 2 (Edge) | `0x00` |
+| Ride  2 (Bow)  | `0x00` |
+| Ride  2 (Edge) | `0x00` |
+
 Upgrade Kernel
 --------------
 

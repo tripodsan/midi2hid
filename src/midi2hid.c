@@ -1,6 +1,12 @@
 #include <stdio.h>
 #include <memory.h>
 #include <ctype.h>
+#include <alsa/asoundlib.h>
+
+static snd_seq_t *seq_handle;
+static int in_port;
+
+#define CHK(stmt, msg) if((stmt) < 0) {puts("ERROR: "#msg); exit(1);}
 
 struct mapping_t {
     /**
@@ -148,22 +154,77 @@ int keyboard_fill_report(__uint8_t report[8], const char *keys) {
 
 void initMap() {
     printf("Mapping\n");
-    for (int i=0; mapping[i].key; i++) {
+    for (int i = 0; mapping[i].key; i++) {
         struct mapping_t map = mapping[i];
         keyboard_fill_report(map.report, map.key);
         printf("├── Note: %02x\n", map.note);
         printf("│   ├── Keys: %s\n", map.key);
         printf("│   └── Report:");
-        for (int k=0; k<8; k++) {
+        for (int k = 0; k < 8; k++) {
             printf(" %02x", map.report[k]);
         }
         printf("\n│\n");
     }
-
 }
 
-int main() {
+struct mapping_t* findMap(__uint8_t note) {
+    for (int i = 0; mapping[i].key; i++) {
+        if (mapping[i].note == note) {
+            return &mapping[i];
+        }
+    }
+    return NULL;
+}
+
+void midi_open(void) {
+    CHK(snd_seq_open(&seq_handle, "default", SND_SEQ_OPEN_INPUT, 0), "Could not open sequencer");
+    CHK(snd_seq_set_client_name(seq_handle, "Midi Listener"), "Could not set client name");
+    CHK(in_port = snd_seq_create_simple_port(seq_handle, "listen:in",
+                                             SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE,
+                                             SND_SEQ_PORT_TYPE_APPLICATION),
+        "Could not open port");
+}
+
+snd_seq_event_t *midi_read(void) {
+    snd_seq_event_t *ev = NULL;
+    snd_seq_event_input(seq_handle, &ev);
+    return ev;
+}
+
+__uint8_t midi_process(const snd_seq_event_t *ev) {
+    if (ev->type == SND_SEQ_EVENT_NOTEON) {
+        printf("[%d] Note on: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
+        return ev->data.note.note;
+    } else if (ev->type == SND_SEQ_EVENT_NOTEOFF) {
+        printf("[%d] Note off: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
+    } else if (ev->type == SND_SEQ_EVENT_CONTROLLER) {
+        printf("[%d] Control:  %2x val(%2x)\n", ev->time.tick, ev->data.control.param, ev->data.control.value);
+    } else {
+        printf("[%d] Unknown:  Unhandled Event Received\n", ev->time.tick);
+    }
+    return 0;
+}
+
+int main(int argc, const char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s usb-devname\n", argv[0]);
+        return 1;
+    }
     printf("MIDI-2-HiD Adapter\n");
     printf("------------------\n\n");
     initMap();
+    midi_open();
+    printf("listening to midi\n");
+    int running = 1;
+    while(running) {
+        __uint8_t note = midi_process(midi_read());
+        if (note) {
+            struct mapping_t* map = findMap(note);
+            if (map) {
+                printf("note %02x maps to %s", note, map->key);
+            } else {
+                printf("note %02x is not mapped", note);
+            }
+        }
+    }
 }

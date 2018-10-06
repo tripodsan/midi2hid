@@ -8,3 +8,4 @@ add_executable (midi-listen src/midi-listen.c)
 add_executable (midi2hid src/midi2hid.c)
 
 target_link_libraries (midi-listen asound)
+target_link_libraries (midi2hid asound)
