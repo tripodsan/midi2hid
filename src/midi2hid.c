@@ -50,17 +50,19 @@ struct mapping_t {
  * | Ride  2 (Edge) | `0x3b` |
  */
 static struct mapping_t mapping[] = {
-        {.note = 0x24, .key = "--spacebar"},
-        {.note = 0x2e, .key = "w"},
-        {.note = 0x1a, .key = "w"},
-        {.note = 0x2a, .key = "w"},
-        {.note = 0x16, .key = "w"},
-        {.note = 0x30, .key = "y"},
-        {.note = 0x2d, .key = "h"},
-        {.note = 0x33, .key = "h"},
-        {.note = 0x3b, .key = "h"},
-        {.note = 0x26, .key = "s"},
-        {.note = 0x28, .key = "s"},
+        {.note = 0x24, .key = "--spacebar"}, // kick
+        {.note = 0x2e, .key = "w"}, // high hat (yellow)
+        {.note = 0x1a, .key = "w"}, // high hat (yellow)
+        {.note = 0x2a, .key = "w"}, // high hat (yellow)
+        {.note = 0x16, .key = "w"}, // high hat (yellow)
+        {.note = 0x30, .key = "y"}, // blue tom
+        {.note = 0x31, .key = "y"}, // crash (orange?)
+        {.note = 0x37, .key = "y"}, // crash (orange?)
+        {.note = 0x2d, .key = "h"}, // green tom
+        {.note = 0x33, .key = "y"}, // ride (orange?)
+        {.note = 0x3b, .key = "y"}, // ride (orange?)
+        {.note = 0x26, .key = "s"}, // snare (red)
+        {.note = 0x28, .key = "s"}, // snare (red)
         {.key = NULL}
 };
 
