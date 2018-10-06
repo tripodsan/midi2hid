@@ -5,6 +5,7 @@
 
 static snd_seq_t *seq_handle;
 static int in_port;
+static int in_client_id;
 
 #define CHK(stmt, msg) if((stmt) < 0) {puts("ERROR: "#msg); exit(1);}
 
@@ -178,12 +179,31 @@ struct mapping_t* findMap(__uint8_t note) {
 
 void midi_open(void) {
     CHK(snd_seq_open(&seq_handle, "default", SND_SEQ_OPEN_INPUT, 0), "Could not open sequencer");
-    CHK(snd_seq_set_client_name(seq_handle, "Midi Listener"), "Could not set client name");
+    CHK(snd_seq_set_client_name(seq_handle, "midi2hid"), "Could not set client name");
     CHK(in_port = snd_seq_create_simple_port(seq_handle, "listen:in",
                                              SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE,
                                              SND_SEQ_PORT_TYPE_APPLICATION),
         "Could not open port");
-    printf("opened port %d for %s", in_port, snd_seq_name(seq_handle));
+    in_client_id = snd_seq_client_id(seq_handle);
+    printf("Started client on %d:%d\n", in_client_id, in_port);
+}
+
+void capture_midi(snd_seq_t *seq) {
+    snd_seq_addr_t sender, dest;
+    snd_seq_port_subscribe_t *subs;
+    sender.client = 20;
+    sender.port = 0;
+    dest.client = in_client_id;
+    dest.port = in_port;
+    snd_seq_port_subscribe_alloca(&subs);
+    snd_seq_port_subscribe_set_sender(subs, &sender);
+    snd_seq_port_subscribe_set_dest(subs, &dest);
+    snd_seq_port_subscribe_set_queue(subs, 1);
+    snd_seq_port_subscribe_set_time_update(subs, 1);
+    snd_seq_port_subscribe_set_time_real(subs, 1);
+    if (snd_seq_subscribe_port(seq, subs < 0)) {
+        fprintf(stderr, "Could not subscribe to %d:%d.", dest.client, dest.port);
+    }
 }
 
 snd_seq_event_t *midi_read(void) {
@@ -215,6 +235,7 @@ int main(int argc, const char *argv[]) {
     printf("------------------\n\n");
     initMap();
     midi_open();
+    capture_midi(seq_handle);
     printf("listening to midi\n");
     int running = 1;
     while(running) {
