@@ -7,6 +7,8 @@ static snd_seq_t *seq_handle;
 static int in_port;
 static int in_client_id;
 
+static __uint8_t BLANK_REPORT[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
 #define CHK(stmt, msg) if((stmt) < 0) {puts("ERROR: "#msg); exit(1);}
 
 struct mapping_t {
@@ -197,6 +199,18 @@ void initMap() {
     }
 }
 
+int send_report(int fd, __uint8_t* report) {
+    if (write(fd, report, 8) != 8) {
+        perror("hid");
+        return 5;
+    }
+    if (write(fd, BLANK_REPORT, 8) != 8) {
+        perror("hid");
+        return 6;
+    }
+    return 0;
+}
+
 struct mapping_t* findMap(__uint8_t note) {
     for (int i = 0; mapping[i].key; i++) {
         if (mapping[i].note == note) {
@@ -262,6 +276,12 @@ int main(int argc, const char *argv[]) {
         fprintf(stderr, "Usage: %s usb-devname\n", argv[0]);
         return 1;
     }
+    int fd;
+    if ((fd = open(argv[1], O_RDWR, 0666)) == -1) {
+        perror(argv[1]);
+        return 3;
+    }
+
     printf("MIDI-2-HiD Adapter\n");
     printf("------------------\n\n");
     initMap();
@@ -275,6 +295,9 @@ int main(int argc, const char *argv[]) {
             struct mapping_t* map = findMap(note);
             if (map) {
                 printf("note %02x maps to %s\n", note, map->key);
+                if (!send_report(fd, map->report)) {
+                    exit(-1);
+                }
             } else {
                 printf("note %02x is not mapped\n", note);
             }
