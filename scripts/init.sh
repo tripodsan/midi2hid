@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# uncomment if not exists yet. TODO chek automatically
+# uncomment if not exists yet. TODO check automatically
 # modprobe libcomposite
 # mkdir /sys/kernel/config/usb_gadget/g_multi
 
