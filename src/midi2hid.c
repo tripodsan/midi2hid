@@ -295,7 +295,7 @@ int main(int argc, const char *argv[]) {
             struct mapping_t* map = findMap(note);
             if (map) {
                 printf("note %02x maps to %s\n", note, map->key);
-                if (!send_report(fd, map->report)) {
+                if (send_report(fd, map->report)) {
                     exit(-1);
                 }
             } else {
