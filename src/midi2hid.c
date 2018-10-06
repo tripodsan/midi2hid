@@ -56,7 +56,7 @@ static struct mapping_t mapping[] = {
         {.note = 0x2a, .key = "w"},
         {.note = 0x16, .key = "w"},
         {.note = 0x30, .key = "y"},
-        {.note = 0x3d, .key = "h"},
+        {.note = 0x2d, .key = "h"},
         {.note = 0x33, .key = "h"},
         {.note = 0x3b, .key = "h"},
         {.note = 0x26, .key = "s"},
