@@ -183,6 +183,7 @@ void midi_open(void) {
                                              SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE,
                                              SND_SEQ_PORT_TYPE_APPLICATION),
         "Could not open port");
+    printf("opened port %d for %s", in_port, snd_seq_name(seq_handle));
 }
 
 snd_seq_event_t *midi_read(void) {
