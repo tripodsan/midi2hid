@@ -2,6 +2,7 @@
 #include <memory.h>
 #include <ctype.h>
 #include <alsa/asoundlib.h>
+#include <pthread.h>
 
 static snd_seq_t *seq_handle;
 static int in_port;
@@ -245,9 +246,9 @@ void midi_capture(snd_seq_t *seq, int client, int port) {
     snd_seq_port_subscribe_set_time_update(subs, 1);
     snd_seq_port_subscribe_set_time_real(subs, 1);
     if (snd_seq_subscribe_port(seq, subs) < 0) {
-        fprintf(stderr, "Could not subscribe to %d:%d.", dest.client, dest.port);
+        fprintf(stderr, "Could not subscribe to %d:%d.\n", dest.client, dest.port);
     } else {
-        printf("Subscribed to %d:%d", client, port);
+        printf("Subscribed to %d:%d\n", client, port);
     }
 }
 
@@ -271,6 +272,36 @@ __uint8_t midi_process(const snd_seq_event_t *ev) {
     return 0;
 }
 
+void *consumeHID(void *vargp) {
+    int fd = *(int*) vargp;
+    fd_set rfds;
+    char buf[512];
+
+    printf("starting HID consumer with fd = %d\n", fd);
+    while (fd) {
+        FD_ZERO(&rfds);
+        FD_SET(fd, &rfds);
+        int retval = select(fd + 1, &rfds, NULL, NULL, NULL);
+        if (retval == -1 && errno == EINTR)
+            continue;
+        if (retval < 0) {
+            perror("select()");
+            fd = 0;
+            continue;
+        }
+        if (FD_ISSET(fd, &rfds)) {
+            ssize_t cmd_len = read(fd, buf, 512 - 1);
+            printf("recv report:");
+            for (int i = 0; i < cmd_len; i++) {
+                printf(" %02x", buf[i]);
+            }
+            printf("\n");
+        }
+    }
+    printf("Stopping HID consumer\n");
+    return 0;
+}
+
 int main(int argc, const char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s usb-devname\n", argv[0]);
@@ -281,6 +312,9 @@ int main(int argc, const char *argv[]) {
         perror(argv[1]);
         return 3;
     }
+
+    pthread_t thread_id;
+    pthread_create(&thread_id, NULL, consumeHID, &fd);
 
     printf("MIDI-2-HiD Adapter\n");
     printf("------------------\n\n");
