@@ -201,6 +201,12 @@ void initMap() {
 }
 
 int send_report(int fd, __uint8_t* report) {
+    printf("sending report: ");
+    for (int k = 0; k < 8; k++) {
+        printf(" %02x", report[k]);
+    }
+    printf("\n");
+
     if (write(fd, report, 8) != 8) {
         perror("hid");
         return 5;

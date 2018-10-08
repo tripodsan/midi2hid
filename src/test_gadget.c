@@ -311,7 +311,12 @@ int main(int argc, const char *argv[])
 			if (to_send == -1)
 				break;
 
-			if (write(fd, report, to_send) != to_send) {
+            printf("sending report: ");
+            for (int k = 0; k < 8; k++) {
+                printf(" %02x", report[k]);
+            }
+            printf("\n");
+            if (write(fd, report, to_send) != to_send) {
 				perror(filename);
 				return 5;
 			}

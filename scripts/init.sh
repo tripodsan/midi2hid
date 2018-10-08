@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+# ^^^ use bash here explicitely, otherwise the `echo -ne` doesn't work in sh.
 
 # uncomment if not exists yet. TODO check automatically
 # modprobe libcomposite
