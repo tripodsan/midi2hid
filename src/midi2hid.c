@@ -142,7 +142,7 @@ __uint8_t findOption(const struct options *opts, const char *tok) {
  * @param hold
  * @return
  */
-int keyboard_fill_report(__uint8_t report[8], const char *keys) {
+int keyboard_fill_report(__uint8_t *report, const char *keys) {
     memset(report, 0x0, 8);
     char buffer[1024];
     strcpy(buffer, keys);
@@ -188,13 +188,13 @@ int keyboard_fill_report(__uint8_t report[8], const char *keys) {
 void initMap() {
     printf("Mapping\n");
     for (int i = 0; mapping[i].key; i++) {
-        struct mapping_t map = mapping[i];
-        keyboard_fill_report(map.report, map.key);
-        printf("├── Note: %02x\n", map.note);
-        printf("│   ├── Keys: %s\n", map.key);
+        struct mapping_t* map = &mapping[i];
+        keyboard_fill_report(map->report, map->key);
+        printf("├── Note: %02x\n", map->note);
+        printf("│   ├── Keys: %s\n", map->key);
         printf("│   └── Report:");
         for (int k = 0; k < 8; k++) {
-            printf(" %02x", map.report[k]);
+            printf(" %02x", map->report[k]);
         }
         printf("\n│\n");
     }
@@ -264,10 +264,12 @@ snd_seq_event_t *midi_read(void) {
     return ev;
 }
 
-__uint8_t midi_process(const snd_seq_event_t *ev) {
+__uint8_t midi_process(const snd_seq_event_t *ev, __uint8_t minVelocity) {
     if (ev->type == SND_SEQ_EVENT_NOTEON) {
         printf("[%d] Note on: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
-        return ev->data.note.note;
+        if (ev->data.note.velocity >= minVelocity) {
+            return ev->data.note.note;
+        }
     } else if (ev->type == SND_SEQ_EVENT_NOTEOFF) {
         printf("[%d] Note off: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
     } else if (ev->type == SND_SEQ_EVENT_CONTROLLER) {
@@ -309,6 +311,7 @@ void *consumeHID(void *vargp) {
 }
 
 int main(int argc, const char *argv[]) {
+    __uint8_t minVelocity = 0x30;
     if (argc < 2) {
         fprintf(stderr, "Usage: %s usb-devname\n", argv[0]);
         return 1;
@@ -330,11 +333,12 @@ int main(int argc, const char *argv[]) {
     printf("listening to midi\n");
     int running = 1;
     while(running) {
-        __uint8_t note = midi_process(midi_read());
+        __uint8_t note = midi_process(midi_read(), minVelocity);
         if (note) {
             struct mapping_t* map = findMap(note);
             if (map) {
                 printf("note %02x maps to %s\n", note, map->key);
+                printf("pre-sending report: ");
                 if (send_report(fd, map->report)) {
                     exit(-1);
                 }
