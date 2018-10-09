@@ -8,6 +8,7 @@
 static snd_seq_t *seq_handle;
 static int in_port;
 static int in_client_id;
+static int verbose = 0;
 
 static __uint8_t BLANK_REPORT[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -63,6 +64,7 @@ static struct mapping_t mapping[] = {
         {.note = 0x31, .key = "y"}, // crash (orange?)
         {.note = 0x37, .key = "y"}, // crash (orange?)
         {.note = 0x2d, .key = "h"}, // green tom
+        {.note = 0x2b, .key = "--return"}, // 3rd tom
         {.note = 0x33, .key = "y"}, // ride (orange?)
         {.note = 0x3b, .key = "y"}, // ride (orange?)
         {.note = 0x26, .key = "s"}, // snare (red)
@@ -182,19 +184,17 @@ struct mapping_t* findMap(__uint8_t note) {
 }
 
 int send_report(int fd, __uint8_t* report) {
-    printf("sending report: ");
-    for (int k = 0; k < 8; k++) {
-        printf(" %02x", report[k]);
+    if (verbose) {
+        printf("sending report: ");
+        for (int k = 0; k < 8; k++) {
+            printf(" %02x", report[k]);
+        }
+        printf("\n");
     }
-    printf("\n");
 
     if (write(fd, report, 8) != 8) {
         perror("hid");
         return 5;
-    }
-    if (write(fd, BLANK_REPORT, 8) != 8) {
-        perror("hid");
-        return 6;
     }
     return 0;
 }
@@ -244,16 +244,24 @@ __uint8_t midi_process(const snd_seq_event_t *ev, __uint8_t minVelocity) {
         return 0;
     }
     if (ev->type == SND_SEQ_EVENT_NOTEON) {
-        printf("[%d] Note on: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
+        if (verbose) {
+            printf("[%d] Note on: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
+        }
         if (ev->data.note.velocity >= minVelocity) {
             return ev->data.note.note;
         }
     } else if (ev->type == SND_SEQ_EVENT_NOTEOFF) {
-        printf("[%d] Note off: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
+        if (verbose) {
+            printf("[%d] Note off: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
+        }
     } else if (ev->type == SND_SEQ_EVENT_CONTROLLER) {
-        printf("[%d] Control:  %2x val(%2x)\n", ev->time.tick, ev->data.control.param, ev->data.control.value);
+        if (verbose) {
+            printf("[%d] Control:  %2x val(%2x)\n", ev->time.tick, ev->data.control.param, ev->data.control.value);
+        }
     } else {
-        printf("[%d] Unknown:  Unhandled Event Received\n", ev->time.tick);
+        if (verbose) {
+            printf("[%d] Unknown:  Unhandled Event Received\n", ev->time.tick);
+        }
     }
     return 0;
 }
@@ -288,15 +296,32 @@ void *consumeHID(void *vargp) {
     return 0;
 }
 
-int main(int argc, const char *argv[]) {
-    __uint8_t minVelocity = 0x30;
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s usb-devname\n", argv[0]);
-        return 1;
+int printUsage(char *bin) {
+    fprintf(stderr, "Usage: %s [-v] device\n", bin);
+    return -1;
+}
+
+int main(int argc, char *argv[]) {
+    char *dhid = 0;
+    int opt;
+    while ((opt = getopt(argc, argv, "v")) != -1) {
+        switch (opt) {
+            case 'v':
+                verbose = 1;
+                break;
+            default:
+                return printUsage(argv[0]);
+        }
     }
+    if (optind >= argc) {
+        return printUsage(argv[0]);
+    }
+    dhid = argv[optind];
+    __uint8_t minVelocity = 0x28;
+
     int fd;
-    if ((fd = open(argv[1], O_RDWR, 0666)) == -1) {
-        perror(argv[1]);
+    if ((fd = open(dhid, O_RDWR, 0666)) == -1) {
+        perror(dhid);
         return 3;
     }
 
@@ -312,7 +337,7 @@ int main(int argc, const char *argv[]) {
     int running = 1;
 
     clock_t now = clock();
-    clock_t delay = CLOCKS_PER_SEC / 1; // delay for 1ms
+    clock_t delay = CLOCKS_PER_SEC / 50; // delay for 20ms
     __uint8_t report[8];
     memset(report, 0, 8);
     __uint8_t pressed[256];
@@ -324,14 +349,20 @@ int main(int argc, const char *argv[]) {
         if (note) {
             struct mapping_t *map = findMap(note);
             if (map) {
-                printf("note %02x maps to %s\n", note, map->key);
+                if (verbose) {
+                    printf("note %02x maps to %s\n", note, map->key);
+                }
                 if (pressed[map->hidKey]++) {
-                    printf("..too fast. %s already included in current report.\n", map->key);
+                    if (verbose) {
+                        printf("..too fast. %s already included in current report.\n", map->key);
+                    }
                 } else {
                     report[2+k++] = map->hidKey;
                 }
             } else {
-                printf("note %02x is not mapped\n", note);
+                if (verbose) {
+                    printf("note %02x is not mapped\n", note);
+                }
             }
         }
         if (k == 8 || (clock() - now >= delay)) {
@@ -341,7 +372,6 @@ int main(int argc, const char *argv[]) {
                     releaseKeys = 0;
                 }
             } else {
-                printf("pre-sending report: ");
                 if (send_report(fd, report)) {
                     exit(-1);
                 }
