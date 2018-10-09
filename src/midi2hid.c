@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <alsa/asoundlib.h>
 #include <pthread.h>
+#include <time.h>
 
 static snd_seq_t *seq_handle;
 static int in_port;
@@ -24,9 +25,9 @@ struct mapping_t {
     const char *key;
 
     /**
-     * Compiled report
+     * HID key
      */
-    __uint8_t report[8];
+    __uint8_t hidKey;
 };
 
 /**
@@ -74,6 +75,8 @@ struct options {
     __uint8_t val;
 };
 
+// keyboard modifiers. we don't need them here, since we only support
+// un-modified keys.
 static struct options kmod[] = {
         {.opt = "--left-ctrl", .val = 0x01},
         {.opt = "--right-ctrl", .val = 0x10},
@@ -136,68 +139,46 @@ __uint8_t findOption(const struct options *opts, const char *tok) {
 }
 
 /**
- * Creates the keyboard HID report.
- * @param report The report buffer
- * @param keys The keys information
- * @param hold
- * @return
+ * Map the given key symbol to a HID key code
+ * @param {key} the input keu
+ * @return the mapped key or 0.
  */
-int keyboard_fill_report(__uint8_t *report, const char *keys) {
-    memset(report, 0x0, 8);
-    char buffer[1024];
-    strcpy(buffer, keys);
-    char *tok = strtok(buffer, " ");
-    int key = 0;
-    int i = 0;
-    for (; tok != NULL; tok = strtok(NULL, " ")) {
-        // set modifiers
-        unsigned char mod = findOption(kmod, tok);
-        if (mod) {
-            report[0] = report[0] | kmod[i].val;
-            continue;
-        }
-
-        // we can _press_ down 6 keys in maximum
-        if (key < 6) {
-            // check for any 'special' key.
-            unsigned char val = findOption(kval, tok);
-            if (val) {
-                report[2 + key++] = val;
-                continue;
-            }
-
-            const char t = tok[0];
-
-            if (t >= 'a' && t <= 'z') {
-                report[2 + key++] = (unsigned char) (tok[0] - ('a' - 0x04));
-                continue;
-            } else if (t >= '1' && t <= '9') {
-                report[2 + key++] = (unsigned char) (tok[0] - ('1' - 0x1e));
-                continue;
-            } else if (t == '0') {
-                report[2 + key++] = (unsigned char) (0x27);
-                continue;
-            }
-
-            fprintf(stderr, "unknown option: %s\n", tok);
-        }
+__uint8_t mapKey(const char *key) {
+    unsigned char val = findOption(kval, key);
+    if (val) {
+        return val;
     }
-    return 8;
+    const char t = key[0];
+    if (t >= 'a' && t <= 'z') {
+        return (unsigned char) (t - ('a' - 0x04));
+    } else if (t >= '1' && t <= '9') {
+        return (unsigned char) (t - ('1' - 0x1e));
+    } else if (t == '0') {
+        return (unsigned char) (0x27);
+    }
+    fprintf(stderr, "unknown option: %s\n", key);
+    return 0;
 }
 
 void initMap() {
     printf("Mapping\n");
     for (int i = 0; mapping[i].key; i++) {
         struct mapping_t* map = &mapping[i];
-        keyboard_fill_report(map->report, map->key);
+        map->hidKey = mapKey(map->key);
         printf("├── Note: %02x\n", map->note);
         printf("│   ├── Keys: %s\n", map->key);
-        printf("│   └── Report:");
-        for (int k = 0; k < 8; k++) {
-            printf(" %02x", map->report[k]);
-        }
-        printf("\n│\n");
+        printf("│   └── Mapped: %02x\n", map->hidKey);
+        printf("│\n");
     }
+}
+
+struct mapping_t* findMap(__uint8_t note) {
+    for (int i = 0; mapping[i].key; i++) {
+        if (mapping[i].note == note) {
+            return &mapping[i];
+        }
+    }
+    return NULL;
 }
 
 int send_report(int fd, __uint8_t* report) {
@@ -218,14 +199,6 @@ int send_report(int fd, __uint8_t* report) {
     return 0;
 }
 
-struct mapping_t* findMap(__uint8_t note) {
-    for (int i = 0; mapping[i].key; i++) {
-        if (mapping[i].note == note) {
-            return &mapping[i];
-        }
-    }
-    return NULL;
-}
 
 void midi_open(void) {
     CHK(snd_seq_open(&seq_handle, "default", SND_SEQ_OPEN_INPUT, 0), "Could not open sequencer");
@@ -260,11 +233,16 @@ void midi_capture(snd_seq_t *seq, int client, int port) {
 
 snd_seq_event_t *midi_read(void) {
     snd_seq_event_t *ev = NULL;
-    snd_seq_event_input(seq_handle, &ev);
+    if (snd_seq_event_input_pending(seq_handle, 1)) {
+        snd_seq_event_input(seq_handle, &ev);
+    }
     return ev;
 }
 
 __uint8_t midi_process(const snd_seq_event_t *ev, __uint8_t minVelocity) {
+    if (!ev) {
+        return 0;
+    }
     if (ev->type == SND_SEQ_EVENT_NOTEON) {
         printf("[%d] Note on: %2x vel(%2x)\n", ev->time.tick, ev->data.note.note, ev->data.note.velocity);
         if (ev->data.note.velocity >= minVelocity) {
@@ -332,19 +310,47 @@ int main(int argc, const char *argv[]) {
     midi_capture(seq_handle, 20, 0);
     printf("listening to midi\n");
     int running = 1;
+
+    clock_t now = clock();
+    clock_t delay = CLOCKS_PER_SEC / 1; // delay for 1ms
+    __uint8_t report[8];
+    memset(report, 0, 8);
+    __uint8_t pressed[256];
+    memset(pressed,0, 256);
+    int k = 0;
+    int releaseKeys = 0;
     while(running) {
         __uint8_t note = midi_process(midi_read(), minVelocity);
         if (note) {
-            struct mapping_t* map = findMap(note);
+            struct mapping_t *map = findMap(note);
             if (map) {
                 printf("note %02x maps to %s\n", note, map->key);
-                printf("pre-sending report: ");
-                if (send_report(fd, map->report)) {
-                    exit(-1);
+                if (pressed[map->hidKey]++) {
+                    printf("..too fast. %s already included in current report.\n", map->key);
+                } else {
+                    report[2+k++] = map->hidKey;
                 }
             } else {
                 printf("note %02x is not mapped\n", note);
             }
+        }
+        if (k == 8 || (clock() - now >= delay)) {
+            if (k ==0) {
+                if (releaseKeys) {
+                    send_report(fd, BLANK_REPORT);
+                    releaseKeys = 0;
+                }
+            } else {
+                printf("pre-sending report: ");
+                if (send_report(fd, report)) {
+                    exit(-1);
+                }
+                k = 0;
+                releaseKeys = 1;
+                memset(report, 0, 8);
+                memset(pressed, 0, 256);
+            }
+            now = clock();
         }
     }
 }
