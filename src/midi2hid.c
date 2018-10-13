@@ -357,7 +357,15 @@ int main(int argc, char *argv[]) {
                         printf("..too fast. %s already included in current report.\n", map->key);
                     }
                 } else {
-                    report[2+k++] = map->hidKey;
+                    if (k == 8) {
+                        printf("..too fast. %s current report already full.\n", map->key);
+                    } else {
+                        report[2+k++] = map->hidKey;
+                        if (send_report(fd, report)) {
+                            exit(-1);
+                        }
+                        now = clock();
+                    }
                 }
             } else {
                 if (verbose) {
@@ -365,16 +373,9 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
-        if (k == 8 || (clock() - now >= delay)) {
-            if (k ==0) {
-                if (releaseKeys) {
-                    send_report(fd, BLANK_REPORT);
-                    releaseKeys = 0;
-                }
-            } else {
-                if (send_report(fd, report)) {
-                    exit(-1);
-                }
+        if (clock() - now >= delay) {
+            if (k > 0) {
+                send_report(fd, BLANK_REPORT);
                 k = 0;
                 releaseKeys = 1;
                 memset(report, 0, 8);
